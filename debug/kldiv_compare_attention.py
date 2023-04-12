@@ -26,6 +26,7 @@ def visualize_attention_kldiv(kl_divs,save_dir,output_name,outlier):
     ax.set_xticklabels(names)
     ax.set_ylabel("KLD(Att_l=2,Att_l=9)")
     plt.tick_params(labelsize=18)
+    ax.set_yticks([0,1,2,3])
     plt.savefig(f'{save_dir}{output_name}.png')
 
 def load_attention(args):
@@ -38,7 +39,7 @@ def load_attention(args):
     
 
 if __name__ == "__main__":
-    save_dir = "DeepGAT_national_version3/output/kldiv/"
+    save_dir = "DeepGAT/output/kldiv/"
     os.makedirs(save_dir, exist_ok=True)
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default='None')
