@@ -26,7 +26,7 @@ def visualize_attention_kldiv(kl_divs,save_dir,output_name,outlier):
     ax.set_xticklabels(names)
     # ax.set_ylabel("KLD(Att_l=2,Att_l=9)")
     plt.tick_params(labelsize=18)
-    plt.ylim([-0.1,3])
+    plt.ylim([-0.1,3.1])
     ax.set_yticks([0,1,2,3])
     plt.savefig(f'{save_dir}{output_name}.png')
 
