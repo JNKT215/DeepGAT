@@ -136,29 +136,38 @@ class GAT(nn.Module):
             self.out_lin = torch.nn.Linear(cfg['n_head'] * cfg['n_hid'], cfg['n_class'])
     
     def forward(self, x, edge_index):
+        hs = []
         if self.cfg['task'] == 'Transductive':
             x = F.dropout(x, p=self.dropout, training=self.training)
             x= self.inconv(x,edge_index)
             x = self.in_norm(x)
+            hs.append(self.inconv.h)
             x = F.elu(x)
             for mid_conv,mid_norm in zip(self.mid_convs,self.mid_norms):
                 x = F.dropout(x, p=self.dropout, training=self.training)
                 x = mid_conv(x, edge_index)
                 x = mid_norm(x)
+                hs.append(mid_conv.h)
                 x = F.elu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
             x = self.outconv(x,edge_index)
             x = self.out_norm(x)
-            x = F.log_softmax(x, dim=-1)
+            hs.append(self.outconv.h)
+            # x = F.log_softmax(x, dim=-1)
         elif self.cfg['task'] == 'Inductive':
-            x = F.elu(self.inconv(x, edge_index) + self.in_lin(x))
+            x = self.inconv(x, edge_index) + self.in_lin(x)
             x = self.in_norm(x)
+            hs.append(self.inconv.h)
+            x = F.elu(x)
             for mid_conv,mid_lin,mid_norm in zip(self.mid_convs,self.mid_lins,self.mid_norms):
-                x = F.elu(mid_conv(x, edge_index) + mid_lin(x))
+                x = mid_conv(x, edge_index) + mid_lin(x)
                 x = mid_norm(x)
+                hs.append(mid_conv.h)
+                x = F.elu(x)          
             x = self.outconv(x, edge_index) + self.out_lin(x)
             x = self.out_norm(x)
-        return x,[],self.outconv.alpha_
+            hs.append(self.outconv.h)
+        return x,hs,self.outconv.alpha_
 
     def get_v_attention(self, edge_index,num_nodes,att):
         edge_index, _ = remove_self_loops(edge_index)
