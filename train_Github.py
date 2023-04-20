@@ -109,7 +109,7 @@ def main(cfg):
 
     print(utils.get_original_cwd())
     mlflow.set_tracking_uri('http://127.0.0.1:5000')
-    mlflow.set_experiment("tuning")
+    mlflow.set_experiment("output")
     mlflow.start_run()
     
     cfg = cfg[cfg.key]

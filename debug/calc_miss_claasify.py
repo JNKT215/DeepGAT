@@ -79,9 +79,15 @@ if __name__ == "__main__":
     parser.add_argument('--L7_h_path', type=str, default='None')
     parser.add_argument('--L8_h_path', type=str, default='None')
     parser.add_argument('--L9_h_path', type=str, default='None')
+    parser.add_argument('--L10_h_path', type=str, default='None')
+    parser.add_argument('--L11_h_path', type=str, default='None')
+    parser.add_argument('--L12_h_path', type=str, default='None')
+    parser.add_argument('--L13_h_path', type=str, default='None')
+    parser.add_argument('--L14_h_path', type=str, default='None')
+    parser.add_argument('--L15_h_path', type=str, default='None')
     args = parser.parse_args()
 
-    L = [0,1,2,3,4,5,6,7,8,9]
+    L = [i for i in range(16)]
     h_paths =[
         args.L0_h_path,
         args.L1_h_path,
@@ -92,7 +98,13 @@ if __name__ == "__main__":
         args.L6_h_path,
         args.L7_h_path,
         args.L8_h_path,
-        args.L9_h_path
+        args.L9_h_path,
+        args.L10_h_path,
+        args.L11_h_path,
+        args.L12_h_path,
+        args.L13_h_path,
+        args.L14_h_path,
+        args.L15_h_path,
     ]
     
     print(f"dataset:{args.name}")
