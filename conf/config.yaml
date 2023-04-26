@@ -183,13 +183,13 @@ GAT_ppi_tuned_DP: &GAT_ppi_tuned_DP
  n_head: 4
  n_head_last: 6
  att_type: DP
- dropout: 0.2
+ dropout: 0.8
  layer_loss: unsupervised
  learing_late: 0.001
  mode: original
  n_hid: 128
  norm: LayerNorm
- weight_decay: 0.0001
+ weight_decay: 0.001
  class_num: Multi
  path: ppi_checkpoint.pt
 
@@ -198,13 +198,13 @@ GAT_ppi_tuned_SD: &GAT_ppi_tuned_SD
  n_head: 4
  n_head_last: 6
  att_type: SD
- dropout: 0.2
+ dropout: 0.8
  layer_loss: unsupervised
  learing_late: 0.001 
  mode: original
- n_hid: 256
- norm: LayerNorm
- weight_decay: 0.0005
+ n_hid: 128
+ norm: BatchNorm1d
+ weight_decay: 0
  class_num: Multi
  path: ppi_checkpoint.pt
 
