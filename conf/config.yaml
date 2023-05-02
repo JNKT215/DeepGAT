@@ -35,14 +35,6 @@ Flickr: &Flickr
  n_class: 7
  run: 10
 
-Github: &Github
- task: Transductive
- dataset: Github
- transform: None
- n_feat: 128
- n_class: 2
- run: 10
-
 PPI: &PPI
   task: Inductive
   dataset: PPI
@@ -90,13 +82,6 @@ GAT_Flickr: &GAT_Flickr
   n_hid: 8
   norm: None
   path: flickr_checkpoint.pt
-
-GAT_GitHub: &GAT_GitHub
-  <<: [*Github,*GAT] 
-  learing_late: 0.01 
-  n_hid: 8
-  norm: None
-  path: DeezerEurope_checkpoint.pt
 
 GAT_ppi: &GAT_ppi
   <<: [*PPI,*GAT]
@@ -319,33 +304,9 @@ GAT_ppi_tuned_YSD_supervised_updated: &GAT_ppi_tuned_YSD_supervised_updated
  path: ppi_checkpoint.pt
 
 
-# mode_calc_miss_classify
-GAT_GitHub_YDP: &GAT_GitHub_YDP
-  <<: [*Github,*GAT] 
-  att_type: YDP
-  learing_late: 0.01
-  layer_loss: supervised 
-  mode: normal
-  n_hid: 2
-  norm: None
-  path: DeezerEurope_checkpoint.pt
-  run: 1
-
-
-GAT_GitHub_YSD: &GAT_GitHub_YSD
-  <<: [*Github,*GAT] 
-  att_type: YSD
-  learing_late: 0.01
-  layer_loss: supervised 
-  mode: normal
-  n_hid: 2
-  norm: None
-  path: DeezerEurope_checkpoint.pt
-
-
 #debag
 debag:
- <<: *GAT_GitHub_YSD
+ <<: *GAT_cs_tuned_DP
  num_layer: 9
  run: 1
 
