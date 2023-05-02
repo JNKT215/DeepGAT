@@ -219,7 +219,6 @@ class GATConv(MessagePassing):
         self.edge_dim = edge_dim
         self.fill_value = fill_value
         self.attention_type = attention_type
-        self.h = None
 
         # In case we are operating in bipartite graphs, we apply separate
         # transformations 'lin_src' and 'lin_dst' to source and target nodes:
@@ -303,7 +302,6 @@ class GATConv(MessagePassing):
                 x_dst = self.lin_dst(x_dst).view(-1, H, C)
 
         x = (x_src, x_dst)
-        self.h = x[0]
 
         # Next, we compute node-level attention coefficients, both for source
         # and target nodes (if present):

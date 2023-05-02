@@ -42,7 +42,7 @@ def random_splits(data, num_classes, lcc_mask):
     data.val_mask = index_to_mask(val_index, size=data.num_nodes)
     data.test_mask = index_to_mask(rest_index, size=data.num_nodes)
 
-    return data
+    return data,torch.cat((train_index,val_index),dim=0)
 
 def train(data, model, optimizer):
     model.train()
@@ -72,7 +72,7 @@ def test(data,model):
     out_softmax = F.log_softmax(out, dim=1)
     acc = accuracy(out_softmax,data,'test_mask')
     attention = model.get_v_attention(data.edge_index,data.x.size(0),attention)
-    return acc,attention
+    return acc,attention,out
 
 def accuracy(out,data,mask):
     mask = data[mask]
@@ -100,8 +100,8 @@ def run(data,model,optimizer,cfg):
             break
     
     model.load_state_dict(torch.load(cfg['path']))
-    test_acc,attention = test(data,model)
-    return test_acc,early_stopping.epoch,attention
+    test_acc,attention,h = test(data,model)
+    return test_acc,early_stopping.epoch,attention,h
 
 
 
@@ -130,10 +130,13 @@ def main(cfg):
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     data = dataset[0].to(device)
-    data = random_splits(data=data,num_classes=cfg["n_class"],lcc_mask=None)
+    data,index = random_splits(data=data,num_classes=cfg["n_class"],lcc_mask=None)
     # check_train_label_per(data)
     
     artifacts,test_accs,epochs = {},[],[]
+    artifacts[f"{cfg['dataset']}_y_true.npy"] = data.y
+    artifacts[f"{cfg['dataset']}_x.npy"] = data.x
+    artifacts[f"{cfg['dataset']}_supervised_index.npy"] = index
     for i in tqdm(range(cfg['run'])):
         set_seed(i)
         if cfg['mode'] == 'original':
@@ -142,8 +145,9 @@ def main(cfg):
             model = DeepGAT(cfg).to(device)
             
         optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg["learing_late"],weight_decay=cfg['weight_decay'])
-        test_acc,epoch,attention = run(data,model,optimizer,cfg)
+        test_acc,epoch,attention,h = run(data,model,optimizer,cfg)
         artifacts[f"{cfg['dataset']}_{cfg['mode']}_{cfg['att_type']}_L_{cfg['num_layer']}_attention_{i}.npy"] = attention
+        artifacts[f"{cfg['dataset']}_{cfg['att_type']}_h_{i}_test_L{cfg['num_layer']}.npy"] = h
         test_accs.append(test_acc)
         epochs.append(epoch)
 
