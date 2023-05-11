@@ -22,7 +22,7 @@ class DeepGATConv(MessagePassing):
     def __init__(self, in_channels: int, out_channels: int, heads: int = 1,
                  concat: bool = True,dropout: float = 0.0, 
                  add_self_loops: bool = True,
-                 bias: bool = True,attention_type: str = 'SD',class_num: str = 'Single', **kwargs):
+                 bias: bool = True,attention_type: str = 'SD',class_num: str = 'Single',oracle_attention: bool = False, **kwargs):
         kwargs.setdefault('aggr', 'add')
         super().__init__(node_dim=0, **kwargs)
 
@@ -36,6 +36,8 @@ class DeepGATConv(MessagePassing):
         self.h = None
         self.attention_type=attention_type
         self.class_num= class_num
+        self.oracle_attention = oracle_attention
+        self.oracle_alpha_ = None
 
         self.lin = Linear(in_channels, heads * out_channels, bias=False, weight_initializer='glorot')
 
@@ -81,6 +83,8 @@ class DeepGATConv(MessagePassing):
         alpha = self.get_attention(edge_index_i, x_i, x_j, num_nodes=size_i)
         self.alpha_ = alpha
         alpha = F.dropout(alpha, p=self.dropout, training=self.training)
+        if self.oracle_attention:
+            alpha = self.oracle_alpha_
         return x_j * alpha.unsqueeze(-1)
 
     def get_attention(self, edge_index_i: Tensor, x_i: Tensor, x_j: Tensor,
@@ -100,6 +104,34 @@ class DeepGATConv(MessagePassing):
         
         alpha = softmax(alpha, edge_index_i, num_nodes=num_nodes)
         return alpha
+    
+    def get_oracle_attention(self,head,edge_index,y,with_self_loops=True):
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        y = y.squeeze()
+        num_nodes = y.size(0)
+        # Add self-loops and sort by index
+        if with_self_loops:
+            edge_index, _ = remove_self_loops(edge_index)
+            edge_index, _ = add_self_loops(edge_index, num_nodes=num_nodes)  # [2, E + N]
+        
+        oracle_attention = torch.Tensor(0).to(device)
+        self_loop_oracle_attention = torch.Tensor(0).to(device)
+
+        for node_idx, label in enumerate(y):
+            neighbors, _ = edge_index[:, edge_index[1] == node_idx]
+            y_neighbors = y[neighbors]
+            if len(label.size()) == 0:
+                agree_dist = (y_neighbors == label).float()
+            else:  # multi-label case
+                agree_dist = (y_neighbors * label).float().sum(dim=1)
+
+            agree_dist = agree_dist / agree_dist.sum()
+            oracle_attention = torch.cat((oracle_attention,agree_dist[:-1]),dim=0)
+            self_loop_oracle_attention = torch.cat((self_loop_oracle_attention,agree_dist[-1:]),dim=0)
+
+        oracle_attention = torch.cat((oracle_attention,self_loop_oracle_attention),dim=0).unsqueeze(dim=-1)
+        oracle_attention = oracle_attention.repeat(1,head)
+        self.oracle_alpha_ = oracle_attention
 
     def __repr__(self) -> str:
         return (f'{self.__class__.__name__}({self.in_channels}, '

@@ -64,6 +64,7 @@ GAT: &GAT
   att_type: DP
   norm: None 
   layer_loss: unsupervised
+  oracle_attention: False
 
 # -------model instance + dataset-------
 GAT_cs: &GAT_cs
@@ -306,8 +307,9 @@ GAT_ppi_tuned_YSD_supervised_updated: &GAT_ppi_tuned_YSD_supervised_updated
 
 #debag
 debag:
- <<: *GAT_cs_tuned_DP
- num_layer: 9
+ <<: *GAT_physics_tuned_YDP_supervised_updated
+ oracle_attention: True
+ num_layer: 2
  run: 1
 
 

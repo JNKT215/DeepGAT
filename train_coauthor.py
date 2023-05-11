@@ -143,6 +143,8 @@ def main(cfg):
             model = GAT(cfg).to(device)
         else:
             model = DeepGAT(cfg).to(device)
+            if cfg['oracle_attention']:
+                model.set_oracle_attention(data.edge_index,data.y)
             
         optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg["learing_late"],weight_decay=cfg['weight_decay'])
         test_acc,epoch,attention,h = run(data,model,optimizer,cfg)

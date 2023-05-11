@@ -33,17 +33,17 @@ class DeepGAT(nn.Module):
             self.out_norm = nn.Identity()
         
         if self.cfg['task'] == 'Transductive':
-            self.inconv = DeepGATConv(in_channels=cfg['n_feat'],out_channels=cfg['n_hid'], heads=cfg['n_head'], dropout=cfg['n_layer_dropout'],attention_type=cfg['att_type'],class_num=cfg['class_num'])
+            self.inconv = DeepGATConv(in_channels=cfg['n_feat'],out_channels=cfg['n_hid'], heads=cfg['n_head'], dropout=cfg['n_layer_dropout'],attention_type=cfg['att_type'],class_num=cfg['class_num'],oracle_attention=cfg['oracle_attention'])
             for _ in range(1,cfg["num_layer"]-1):
-                self.mid_convs.append(DeepGATConv(in_channels=cfg['n_hid']*cfg['n_head'],out_channels=cfg['n_hid'], heads=cfg['n_head'], dropout=cfg['n_layer_dropout'],attention_type=cfg['att_type'],class_num=cfg['class_num']))
-            self.outconv = DeepGATConv(in_channels=cfg['n_hid']*cfg['n_head'], out_channels=cfg['n_class'], heads=cfg['n_head_last'], concat=False,dropout=cfg['n_layer_dropout'],attention_type=cfg['att_type'],class_num=cfg['class_num'])
+                self.mid_convs.append(DeepGATConv(in_channels=cfg['n_hid']*cfg['n_head'],out_channels=cfg['n_hid'], heads=cfg['n_head'], dropout=cfg['n_layer_dropout'],attention_type=cfg['att_type'],class_num=cfg['class_num'],oracle_attention=cfg['oracle_attention']))
+            self.outconv = DeepGATConv(in_channels=cfg['n_hid']*cfg['n_head'], out_channels=cfg['n_class'], heads=cfg['n_head_last'], concat=False,dropout=cfg['n_layer_dropout'],attention_type=cfg['att_type'],class_num=cfg['class_num'],oracle_attention=cfg['oracle_attention'])
         elif self.cfg['task'] == 'Inductive':
-            self.inconv = DeepGATConv(cfg['n_feat'], cfg['n_hid'], heads=cfg['n_head'],attention_type=cfg['att_type'],class_num=cfg['class_num'])
+            self.inconv = DeepGATConv(cfg['n_feat'], cfg['n_hid'], heads=cfg['n_head'],attention_type=cfg['att_type'],class_num=cfg['class_num'],oracle_attention=cfg['oracle_attention'])
             self.in_lin = torch.nn.Linear(cfg['n_feat'], cfg['n_head'] * cfg['n_hid'])
             for _ in range(1,cfg["num_layer"]-1):
-                self.mid_convs.append(DeepGATConv(cfg['n_head'] * cfg['n_hid'], cfg['n_hid'], heads=cfg['n_head'],attention_type=cfg['att_type'],class_num=cfg['class_num']))
+                self.mid_convs.append(DeepGATConv(cfg['n_head'] * cfg['n_hid'], cfg['n_hid'], heads=cfg['n_head'],attention_type=cfg['att_type'],class_num=cfg['class_num'],oracle_attention=cfg['oracle_attention']))
                 self.mid_lins.append(torch.nn.Linear(cfg['n_head'] * cfg['n_hid'], cfg['n_head'] * cfg['n_hid']))
-            self.outconv = DeepGATConv(cfg['n_head'] * cfg['n_hid'], cfg['n_class'], heads=cfg['n_head_last'],concat=False,attention_type=cfg['att_type'],class_num=cfg['class_num'])
+            self.outconv = DeepGATConv(cfg['n_head'] * cfg['n_hid'], cfg['n_class'], heads=cfg['n_head_last'],concat=False,attention_type=cfg['att_type'],class_num=cfg['class_num'],oracle_attention=cfg['oracle_attention'])
             self.out_lin = torch.nn.Linear(cfg['n_head'] * cfg['n_hid'], cfg['n_class'])
 
     def forward(self, x, edge_index):
@@ -91,7 +91,12 @@ class DeepGAT(nn.Module):
             v_att_l.append(att_neighbors.to('cpu').detach().numpy().copy())
 
         return v_att_l
-
+    
+    def set_oracle_attention(self,edge_index,y,with_self_loops=True):
+            self.inconv.get_oracle_attention(self.cfg['n_head'],edge_index,y,with_self_loops)
+            for i in range(1,self.cfg["num_layer"]-1):
+                self.mid_convs[i].get_oracle_attention(self.cfg['n_head'],edge_index,y,with_self_loops)
+            self.outconv.get_oracle_attention(self.cfg['n_head_last'],edge_index,y,with_self_loops)
 
     
 
