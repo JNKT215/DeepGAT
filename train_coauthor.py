@@ -133,7 +133,7 @@ def main(cfg):
     data,index = random_splits(data=data,num_classes=cfg["n_class"],lcc_mask=None)
     # check_train_label_per(data)
     
-    artifacts,test_accs,epochs = {},[],[]
+    artifacts,test_accs,epochs,attentions,hs = {},[],[],[],[]
     artifacts[f"{cfg['dataset']}_y_true.npy"] = data.y
     artifacts[f"{cfg['dataset']}_x.npy"] = data.x
     artifacts[f"{cfg['dataset']}_supervised_index.npy"] = index
@@ -148,10 +148,15 @@ def main(cfg):
             
         optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg["learing_late"],weight_decay=cfg['weight_decay'])
         test_acc,epoch,attention,h = run(data,model,optimizer,cfg)
-        artifacts[f"{cfg['dataset']}_{cfg['mode']}_{cfg['att_type']}_L_{cfg['num_layer']}_attention_{i}.npy"] = attention
-        artifacts[f"{cfg['dataset']}_{cfg['att_type']}_h_{i}_test_L{cfg['num_layer']}.npy"] = h
+        
         test_accs.append(test_acc)
         epochs.append(epoch)
+        attentions.append(attention)
+        hs.append(h)
+        
+    acc_max_index = test_accs.index(max(test_accs))
+    artifacts[f"{cfg['dataset']}_{cfg['att_type']}_attention_L{cfg['num_layer']}.npy"] = attentions[acc_max_index]
+    artifacts[f"{cfg['dataset']}_{cfg['att_type']}_h_L{cfg['num_layer']}.npy"] = hs[acc_max_index]
 
     test_acc_ave = sum(test_accs)/len(test_accs)
     epoch_ave = sum(epochs)/len(epochs)

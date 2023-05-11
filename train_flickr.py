@@ -86,7 +86,7 @@ def main(cfg):
     data = dataset[0].to(device)
     
     
-    artifacts,test_accs,epochs = {},[],[]
+    artifacts,test_accs,epochs,attentions = {},[],[],[]
     for i in tqdm(range(cfg['run'])):
         set_seed(i)
         if cfg['mode'] == 'original':
@@ -96,15 +96,17 @@ def main(cfg):
             
         optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg["learing_late"],weight_decay=cfg['weight_decay'])
         test_acc,epoch,attention = run(data,model,optimizer,cfg)
-        artifacts[f"{cfg['dataset']}_{cfg['mode']}_{cfg['att_type']}_L_{cfg['num_layer']}_attention_{i}.npy"] = attention
+        
         test_accs.append(test_acc)
         epochs.append(epoch)
+        attentions.append(attention)
+        
+    acc_max_index = test_accs.index(max(test_accs))
+    artifacts[f"{cfg['dataset']}_{cfg['att_type']}_attention_L{cfg['num_layer']}.npy"] = attentions[acc_max_index]
             
     test_acc_ave = sum(test_accs)/len(test_accs)
     epoch_ave = sum(epochs)/len(epochs)
     log_artifacts(artifacts)
-
-        
         
     mlflow.log_metric('epoch_mean',epoch_ave)
     mlflow.log_metric('test_acc_min',min(test_accs))

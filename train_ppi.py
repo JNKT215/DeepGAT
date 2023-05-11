@@ -95,7 +95,7 @@ def main(cfg):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    artifacts,test_accs,epochs = {},[],[] 
+    artifacts,test_accs,epochs,attentions_l = {},[],[],[] 
     for i in tqdm(range(cfg['run'])):
         set_seed(i)
         if cfg['mode'] == 'original':
@@ -105,11 +105,14 @@ def main(cfg):
              
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg['learing_late'])
         test_acc,epoch,attentions = run(loader,model,optimizer,device,cfg)
-        for j in range(len(attentions)):
-            artifacts[f"{cfg['dataset']}_{cfg['mode']}_L_{cfg['num_layer']}_attention_{i}_test_{j}.npy"] = attentions[j]
 
         test_accs.append(test_acc)
         epochs.append(epoch)
+        attentions_l.append(attentions)
+    
+    acc_max_index = test_accs.index(max(test_accs))
+    for j in range(len(attentions_l[acc_max_index])):
+            artifacts[f"{cfg['dataset']}_{cfg['att_type']}_attention_{j}_L{cfg['num_layer']}.npy"] = attentions_l[acc_max_index][j]
 
     test_acc_ave = sum(test_accs)/len(test_accs)
     epoch_ave = sum(epochs)/len(epochs)
