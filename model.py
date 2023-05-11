@@ -94,7 +94,7 @@ class DeepGAT(nn.Module):
     
     def set_oracle_attention(self,edge_index,y,with_self_loops=True):
             self.inconv.get_oracle_attention(self.cfg['n_head'],edge_index,y,with_self_loops)
-            for i in range(1,self.cfg["num_layer"]-1):
+            for i in range(self.cfg["num_layer"]-2):
                 self.mid_convs[i].get_oracle_attention(self.cfg['n_head'],edge_index,y,with_self_loops)
             self.outconv.get_oracle_attention(self.cfg['n_head_last'],edge_index,y,with_self_loops)
 
