@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-import torch
+import os
 import mlflow
 
 class EarlyStopping():
@@ -51,12 +51,18 @@ def check_train_label_per(data):
 
     print(f"train_mask_label:{cnt},labels_num:{labels_num},train_label_percent:{train_label_percent}")
 
-def log_artifacts(artifacts):
+def log_artifacts(artifacts,output_path=None):
     if artifacts is not None:
         for artifact_name, artifact in artifacts.items():
             if isinstance(artifact, list):
+                if output_path is not None:
+                    artifact_name = f"{output_path}/{artifact_name}"
+                    os.makedirs(output_path, exist_ok=True)
                 np.save(artifact_name, artifact)
                 mlflow.log_artifact(artifact_name)
             elif artifact is not None and artifact !=[]:
+                if output_path is not None:
+                    artifact_name = f"{output_path}/{artifact_name}"
+                    os.makedirs(output_path, exist_ok=True)
                 np.save(artifact_name, artifact.to('cpu').detach().numpy().copy())
                 mlflow.log_artifact(artifact_name)

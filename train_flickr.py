@@ -106,7 +106,7 @@ def main(cfg):
             
     test_acc_ave = sum(test_accs)/len(test_accs)
     epoch_ave = sum(epochs)/len(epochs)
-    log_artifacts(artifacts)
+    log_artifacts(artifacts,output_path=f"{utils.get_original_cwd()}/DeepGAT/output/{cfg['dataset']}/{cfg['att_type']}/oracle/{cfg['oracle_attention']}")
         
     mlflow.log_metric('epoch_mean',epoch_ave)
     mlflow.log_metric('test_acc_min',min(test_accs))
