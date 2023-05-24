@@ -7,7 +7,7 @@ import argparse
 def calc_kldiv(a_vec, b_vec):
     return np.sum([a * np.log(a/b) for a, b in zip(a_vec, b_vec)])
 
-def calc_v_attention_kldiv_ver2(L2_attention,L9_attention):
+def calc_v_attention_kldiv(L2_attention,L9_attention):
     output = []
     for v_attention_l2, v_attention_l9 in zip(L2_attention, L9_attention):
         epsilon_vec = np.array([1e-5 for _ in range(v_attention_l2.shape[0])])
@@ -57,8 +57,8 @@ if __name__ == "__main__":
     
     
     kl_divs = {}
-    kl_divs["DeepGAT"] = calc_v_attention_kldiv_ver2(DeepGAT_L2_Attention,DeepGAT_L9_Attention)
-    kl_divs["GAT"] = calc_v_attention_kldiv_ver2(GAT_L2_Attention,GAT_L9_Attention)
+    kl_divs["DeepGAT (DP)"] = calc_v_attention_kldiv(DeepGAT_L2_Attention,DeepGAT_L9_Attention)
+    kl_divs["GAT (DP)"]     = calc_v_attention_kldiv(GAT_L2_Attention,GAT_L9_Attention)
     print(f"dataset:{args.name}")
     visualize_attention_kldiv(kl_divs,save_dir,args.output_name,args.outlier)
     
