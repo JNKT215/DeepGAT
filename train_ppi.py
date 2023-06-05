@@ -15,8 +15,10 @@ def train(loader,model,optimizer,device):
     loss_op = torch.nn.BCEWithLogitsLoss()
     total_loss = 0
     if model.cfg['layer_loss'] == 'supervised':
-        for data in loader:
+        for data in loader:  # in [g1, g2, ..., g20]
             data = data.to(device)
+            if model.cfg['oracle_attention']:
+                model.set_oracle_attention(data.edge_index,data.y)
             optimizer.zero_grad()
             out,hs,_ = model(data.x, data.edge_index)
             loss = loss_op(out, data.y)
@@ -25,7 +27,7 @@ def train(loader,model,optimizer,device):
             loss.backward()
             optimizer.step()
     else:
-        for data in loader:
+        for data in loader:  # in [g1, g2, ..., g20]
             data = data.to(device)
             optimizer.zero_grad()
             out,_,_ = model(data.x, data.edge_index)
@@ -39,16 +41,19 @@ def train(loader,model,optimizer,device):
 @torch.no_grad()
 def test(loader,model,device):
     model.eval()
-    ys, preds,attentions = [], [],[]
-    for data in loader:
+    ys, preds,attentions,hs = [], [], [], []
+    for data in loader: # only one batch (=g1+g2)
         ys.append(data.y)
+        if model.cfg['oracle_attention']:
+                model.set_oracle_attention(data.edge_index,data.y)
         out,_,attention = model(data.x.to(device), data.edge_index.to(device))
         attention = model.get_v_attention(data.edge_index,data.x.size(0),attention)
         attentions.append(attention)
+        hs.append(out)
         preds.append((out > 0).float().cpu())
 
     y, pred = torch.cat(ys, dim=0).numpy(), torch.cat(preds, dim=0).numpy()
-    return f1_score(y, pred, average='micro') if pred.sum() > 0 else 0, attentions
+    return f1_score(y, pred, average='micro') if pred.sum() > 0 else 0, attentions[0],hs[0]
 
 def get_y_preds_loss(hs,data,loss_op):
     y_pred_loss = torch.tensor(0, dtype=torch.float32,device=hs[0].device)
@@ -68,8 +73,8 @@ def run(loader,model,optimizer,device,cfg):
             break
     
     model.load_state_dict(torch.load(cfg['path']))
-    test_acc,attentions = test(test_loader,model,device)
-    return test_acc,early_stopping.epoch,attentions
+    test_acc,attention,h = test(test_loader,model,device)
+    return test_acc,early_stopping.epoch,attention,h
 
 @hydra.main(config_path='conf', config_name='config')
 def main(cfg):
@@ -95,7 +100,13 @@ def main(cfg):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    artifacts,test_accs,epochs,attentions_l = {},[],[],[] 
+    artifacts,test_accs,epochs,attentions,hs = {},[],[],[],[]
+    for data in test_loader:
+        train_index, val_index = torch.nonzero(data.train_mask).squeeze(),torch.nonzero(data.val_mask).squeeze()
+        artifacts[f"{cfg['dataset']}_y_true.npy"] = data.y
+        artifacts[f"{cfg['dataset']}_x.npy"] = data.x
+        artifacts[f"{cfg['dataset']}_supervised_index.npy"] = torch.cat((train_index,val_index),dim=0)
+        
     for i in tqdm(range(cfg['run'])):
         set_seed(i)
         if cfg['mode'] == 'original':
@@ -104,15 +115,16 @@ def main(cfg):
             model = DeepGAT(cfg).to(device)
              
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg['learing_late'])
-        test_acc,epoch,attentions = run(loader,model,optimizer,device,cfg)
+        test_acc,epoch,attention,h = run(loader,model,optimizer,device,cfg)
 
         test_accs.append(test_acc)
         epochs.append(epoch)
-        attentions_l.append(attentions)
+        attentions.append(attention)
+        hs.append(h)
     
     acc_max_index = test_accs.index(max(test_accs))
-    for j in range(len(attentions_l[acc_max_index])):
-            artifacts[f"{cfg['dataset']}_{cfg['att_type']}_attention_{j}_L{cfg['num_layer']}.npy"] = attentions_l[acc_max_index][j]
+    artifacts[f"{cfg['dataset']}_{cfg['att_type']}_attention_L{cfg['num_layer']}.npy"] = attentions[acc_max_index]
+    artifacts[f"{cfg['dataset']}_{cfg['att_type']}_h_L{cfg['num_layer']}.npy"] = hs[acc_max_index]
 
     test_acc_ave = sum(test_accs)/len(test_accs)
     epoch_ave = sum(epochs)/len(epochs)

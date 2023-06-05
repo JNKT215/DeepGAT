@@ -36,7 +36,7 @@ def test(data,model):
     out_softmax = F.log_softmax(out, dim=1)
     acc = accuracy(out_softmax,data,'test_mask')
     attention = model.get_v_attention(data.edge_index,data.x.size(0),attention)
-    return acc,attention
+    return acc,attention,out
 
 def accuracy(out,data,mask):
     mask = data[mask]
@@ -63,8 +63,8 @@ def run(data,model,optimizer,cfg):
             break
     
     model.load_state_dict(torch.load(cfg['path']))
-    test_acc,attention = test(data,model)
-    return test_acc,early_stopping.epoch,attention
+    test_acc,attention,h = test(data,model)
+    return test_acc,early_stopping.epoch,attention,h
 
 
 @hydra.main(config_path='conf', config_name='config')
@@ -84,25 +84,33 @@ def main(cfg):
     dataset = Flickr(root= root)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     data = dataset[0].to(device)
+    train_index, val_index = torch.nonzero(data.train_mask).squeeze(),torch.nonzero(data.val_mask).squeeze()
     
     
-    artifacts,test_accs,epochs,attentions = {},[],[],[]
+    artifacts,test_accs,epochs,attentions,hs = {},[],[],[],[]
+    artifacts[f"{cfg['dataset']}_y_true.npy"] = data.y
+    artifacts[f"{cfg['dataset']}_x.npy"] = data.x
+    artifacts[f"{cfg['dataset']}_supervised_index.npy"] = torch.cat((train_index,val_index),dim=0)
     for i in tqdm(range(cfg['run'])):
         set_seed(i)
         if cfg['mode'] == 'original':
             model = GAT(cfg).to(device)
         else:
             model = DeepGAT(cfg).to(device)
+            if cfg['oracle_attention']:
+                model.set_oracle_attention(data.edge_index,data.y)
             
         optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg["learing_late"],weight_decay=cfg['weight_decay'])
-        test_acc,epoch,attention = run(data,model,optimizer,cfg)
+        test_acc,epoch,attention,h = run(data,model,optimizer,cfg)
         
         test_accs.append(test_acc)
         epochs.append(epoch)
         attentions.append(attention)
+        hs.append(h)
         
     acc_max_index = test_accs.index(max(test_accs))
     artifacts[f"{cfg['dataset']}_{cfg['att_type']}_attention_L{cfg['num_layer']}.npy"] = attentions[acc_max_index]
+    artifacts[f"{cfg['dataset']}_{cfg['att_type']}_h_L{cfg['num_layer']}.npy"] = hs[acc_max_index]
             
     test_acc_ave = sum(test_accs)/len(test_accs)
     epoch_ave = sum(epochs)/len(epochs)
