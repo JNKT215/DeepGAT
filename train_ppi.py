@@ -9,6 +9,16 @@ from tqdm import tqdm
 import mlflow
 from utils import EarlyStopping,set_seed,log_artifacts
 
+@torch.no_grad()
+def get_train_h(train_loader,model,device):
+    model.eval()
+    train_hs = []
+    for data in train_loader:  # in [g1, g2, ..., g20]
+        if model.cfg['oracle_attention']:
+                model.set_oracle_attention(data.edge_index,data.y)
+        out,_,_ = model(data.x.to(device), data.edge_index.to(device))
+        train_hs.append(out)
+    return torch.cat(train_hs, dim=0)
 
 def train(loader,model,optimizer,device):
     model.train()
@@ -73,8 +83,9 @@ def run(loader,model,optimizer,device,cfg):
             break
     
     model.load_state_dict(torch.load(cfg['path']))
-    test_acc,attention,h = test(test_loader,model,device)
-    return test_acc,early_stopping.epoch,attention,h
+    test_acc,attention,test_h = test(test_loader,model,device)
+    train_h = get_train_h(train_loader,model,device)
+    return test_acc,early_stopping.epoch,attention,test_h,train_h
 
 @hydra.main(config_path='conf', config_name='config')
 def main(cfg):
@@ -99,14 +110,13 @@ def main(cfg):
     loader =[train_loader,test_loader]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    train_xs,train_ys,test_xs,test_ys = [data.x for data in train_loader],[data.y for data in train_loader],[data.x for data in test_loader],[data.y for data in test_loader]
     
-    artifacts,test_accs,epochs,attentions,hs = {},[],[],[],[]
-    for data in test_loader:
-        train_index, val_index = torch.nonzero(data.train_mask).squeeze(),torch.nonzero(data.val_mask).squeeze()
-        artifacts[f"{cfg['dataset']}_y_true.npy"] = data.y
-        artifacts[f"{cfg['dataset']}_x.npy"] = data.x
-        artifacts[f"{cfg['dataset']}_supervised_index.npy"] = torch.cat((train_index,val_index),dim=0)
-        
+    artifacts,test_accs,epochs,attentions,test_hs,train_hs = {},[],[],[],[],[]
+    artifacts[f"{cfg['dataset']}_train_y_true.npy"] = torch.cat(train_ys, dim=0)
+    artifacts[f"{cfg['dataset']}_train_x.npy"] = torch.cat(train_xs, dim=0)    
+    artifacts[f"{cfg['dataset']}_test_y_true.npy"] = test_ys[0]
+    artifacts[f"{cfg['dataset']}_test_x.npy"] = test_xs[0] 
     for i in tqdm(range(cfg['run'])):
         set_seed(i)
         if cfg['mode'] == 'original':
@@ -115,16 +125,18 @@ def main(cfg):
             model = DeepGAT(cfg).to(device)
              
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg['learing_late'])
-        test_acc,epoch,attention,h = run(loader,model,optimizer,device,cfg)
+        test_acc,epoch,attention,test_h,train_h = run(loader,model,optimizer,device,cfg)
 
         test_accs.append(test_acc)
         epochs.append(epoch)
         attentions.append(attention)
-        hs.append(h)
+        test_hs.append(test_h)
+        train_hs.append(train_h)
     
     acc_max_index = test_accs.index(max(test_accs))
     artifacts[f"{cfg['dataset']}_{cfg['att_type']}_attention_L{cfg['num_layer']}.npy"] = attentions[acc_max_index]
-    artifacts[f"{cfg['dataset']}_{cfg['att_type']}_h_L{cfg['num_layer']}.npy"] = hs[acc_max_index]
+    artifacts[f"{cfg['dataset']}_{cfg['att_type']}_test_h_L{cfg['num_layer']}.npy"] = test_hs[acc_max_index]
+    artifacts[f"{cfg['dataset']}_{cfg['att_type']}_train_h_L{cfg['num_layer']}.npy"] = train_hs[acc_max_index]
 
     test_acc_ave = sum(test_accs)/len(test_accs)
     epoch_ave = sum(epochs)/len(epochs)
