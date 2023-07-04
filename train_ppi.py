@@ -14,8 +14,6 @@ def get_train_h(train_loader,model,device):
     model.eval()
     train_hs = []
     for data in train_loader:  # in [g1, g2, ..., g20]
-        if model.cfg['oracle_attention']:
-                model.set_oracle_attention(data.edge_index,data.y)
         out,_,_ = model(data.x.to(device), data.edge_index.to(device))
         train_hs.append(out)
     return torch.cat(train_hs, dim=0)
@@ -27,8 +25,6 @@ def train(loader,model,optimizer,device):
     if model.cfg['layer_loss'] == 'supervised':
         for data in loader:  # in [g1, g2, ..., g20]
             data = data.to(device)
-            if model.cfg['oracle_attention']:
-                model.set_oracle_attention(data.edge_index,data.y)
             optimizer.zero_grad()
             out,hs,_ = model(data.x, data.edge_index)
             loss = loss_op(out, data.y)
@@ -54,8 +50,6 @@ def test(loader,model,device):
     ys, preds,attentions,hs = [], [], [], []
     for data in loader: # only one batch (=g1+g2)
         ys.append(data.y)
-        if model.cfg['oracle_attention']:
-                model.set_oracle_attention(data.edge_index,data.y)
         out,_,attention = model(data.x.to(device), data.edge_index.to(device))
         attention = model.get_v_attention(data.edge_index,data.x.size(0),attention)
         attentions.append(attention)
@@ -140,7 +134,7 @@ def main(cfg):
 
     test_acc_ave = sum(test_accs)/len(test_accs)
     epoch_ave = sum(epochs)/len(epochs)
-    log_artifacts(artifacts,output_path=f"{utils.get_original_cwd()}/DeepGAT/output/{cfg['dataset']}/{cfg['att_type']}/oracle/{cfg['oracle_attention']}")
+    log_artifacts(artifacts,output_path=f"{utils.get_original_cwd()}/DeepGAT/output/{cfg['dataset']}/{cfg['att_type']}")
 
     mlflow.log_metric('epoch_mean',epoch_ave)
     mlflow.log_metric('test_acc_min',min(test_accs))
